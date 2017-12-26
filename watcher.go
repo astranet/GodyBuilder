@@ -19,11 +19,12 @@ type Watcher interface {
 	Close()
 }
 
-func NewFSWatcher(w *fsnotify.Watcher, debug bool) Watcher {
+func NewFSWatcher(w *fsnotify.Watcher, wait time.Duration, debug bool) Watcher {
 	f := &fsWatcher{
-		debug: debug,
 		w:     w,
+		wait:  wait,
 		mm:    new(sync.RWMutex),
+		debug: debug,
 		exitC: make(chan struct{}),
 		doneC: make(chan struct{}),
 	}
@@ -33,6 +34,7 @@ func NewFSWatcher(w *fsnotify.Watcher, debug bool) Watcher {
 
 type fsWatcher struct {
 	w     *fsnotify.Watcher
+	wait  time.Duration
 	mm    *sync.RWMutex
 	m     map[string]map[string]struct{}
 	debug bool
@@ -91,7 +93,7 @@ func (f *fsWatcher) mon() {
 				bufMux.Lock()
 				queue := make([]string, 0, len(buf))
 				for path, ts := range buf {
-					if time.Since(ts) > time.Second {
+					if time.Since(ts) > f.wait {
 						queue = append(queue, path)
 						delete(buf, path)
 					}

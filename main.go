@@ -178,6 +178,8 @@ func watchCmd(c *cli.Cmd) {
 	fancy := c.BoolOpt("f fancy", true, "Enables dynamic reporting.")
 	exclude := c.StringsOpt("E exclude", nil, "Exclude specfic path prefixes (e.g. vendor).")
 	include := c.StringsOpt("I include", nil, "Include package prefixes.")
+	notify := c.StringOpt("N notify", "docker", "Specify a notification backend. By default restarts a docker container.")
+	notifyHold := c.StringOpt("H hold", "1s", "Specify holding time before issuing a notification after collecting events.")
 
 	c.Action = func() {
 		defer closer.Close()
@@ -188,6 +190,18 @@ func watchCmd(c *cli.Cmd) {
 		}
 		if *debug {
 			log.Println("gody: submitted", len(*packages), "packages")
+		}
+		backend, pattern := decodeNotify(*notify)
+		if *debug {
+			log.Printf("gody: using %s notification backend with pattern %s", backend, pattern)
+		}
+		var r Restarter
+		if backend == NotifyDocker {
+			if rr, err := NewRestarter(); err != nil {
+				closer.Fatalln("gody: failed to init Docker restarter", err)
+			} else {
+				r = rr
+			}
 		}
 
 		var spinStop func()
@@ -212,6 +226,9 @@ func watchCmd(c *cli.Cmd) {
 						deps[path][pkg.ImportPath] = struct{}{}
 					}
 				}
+			}
+			if tmp, _, err := compilePattern(pattern, p); err != nil {
+				closer.Fatalf("gody: failed to compile Rx pattern: %s error: %v", tmp, err)
 			}
 		}
 		if *fancy && len(*packages) > 0 {
@@ -274,7 +291,7 @@ func watchCmd(c *cli.Cmd) {
 		closer.Bind(func() {
 			close(pkgC)
 		})
-		w := NewFSWatcher(watcher, false)
+		w := NewFSWatcher(watcher, duration(*notifyHold, time.Second), false)
 		w.SetOnChange(func(ids []string) {
 			log.Printf("gody: rebuilding %d packages", len(ids))
 			for _, id := range ids {
@@ -290,7 +307,26 @@ func watchCmd(c *cli.Cmd) {
 			}
 		}
 		onBuiltFunc := func(pkg string) {
-			// TODO: restart container schedule
+			pattern, patternRx, err := compilePattern(pattern, pkg)
+			switch backend {
+			case NotifyPrint:
+				log.Println("gody: updated", pattern)
+			case NotifyDocker:
+				if err != nil {
+					log.Printf("gody: failed to compile pattern %s error: %v", pattern, err)
+					return
+				}
+				if *debug {
+					log.Println("gody: restarting docker containers matching", pattern)
+				}
+				go func() {
+					if n, err := r.RestartRx(patternRx, time.Minute); err != nil {
+						log.Println("gody: failed to restart", err)
+					} else if *debug {
+						log.Printf("gody: restarted %d containers", n)
+					}
+				}()
+			}
 		}
 		b := NewBuilder(d, *debug)
 		ctx, cancelFn := context.WithCancel(context.Background())
@@ -429,4 +465,56 @@ func containsPrefix(path string, prefixes []string) bool {
 		}
 	}
 	return false
+}
+
+type NotifyBackend string
+
+const (
+	NotifyDocker NotifyBackend = "docker"
+	NotifyPrint  NotifyBackend = "print"
+)
+
+func decodeNotify(str string) (backend NotifyBackend, pattern string) {
+	parts := strings.Split(str, ":")
+	backend = NotifyBackend(parts[0])
+	switch backend {
+	case NotifyDocker:
+		if len(parts) == 1 {
+			pattern = "docker_{cmd-dashed}_\\d+"
+			return
+		}
+		pattern = strings.Join(parts[1:], ":")
+		return
+	case NotifyPrint:
+		if len(parts) == 1 {
+			pattern = "{pkg}"
+			return
+		}
+		pattern = strings.Join(parts[1:], ":")
+		return
+	default:
+		log.Println("Warning: unknown notification backend:", backend)
+		return
+	}
+}
+
+func compilePattern(pattern string, pkgName string) (string, *regexp.Regexp, error) {
+	parts := strings.Split(pkgName, "/")
+	cmdName := parts[len(parts)-1]
+	pattern = strings.Replace(pattern, "{pkg}", pkgName, -1)
+	pattern = strings.Replace(pattern, "{cmd-dashed}", strings.Replace(cmdName, "_", "(_|-)", -1), -1)
+	pattern = strings.Replace(pattern, "{cmd}", cmdName, -1)
+	rx, err := regexp.Compile(pattern)
+	if err != nil {
+		return pattern, nil, err
+	}
+	return pattern, rx, nil
+}
+
+func duration(s string, defaults time.Duration) time.Duration {
+	dur, err := time.ParseDuration(s)
+	if err != nil {
+		dur = defaults
+	}
+	return dur
 }

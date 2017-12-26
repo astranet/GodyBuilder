@@ -8,6 +8,8 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"regexp"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -382,4 +384,53 @@ func pullImage(cli *client.Client, refStr string) error {
 	io.Copy(ioutil.Discard, resp)
 	resp.Close()
 	return nil
+}
+
+type Restarter interface {
+	RestartRx(pattern *regexp.Regexp, dur time.Duration) (int, error)
+}
+
+func NewRestarter() (Restarter, error) {
+	cli, err := client.NewEnvClient()
+	if err != nil {
+		return nil, err
+	}
+	return &restarter{
+		cli:        cli,
+		rpcTimeout: defaultRPCTimeout,
+	}, nil
+}
+
+func (r *restarter) RestartRx(pattern *regexp.Regexp, dur time.Duration) (int, error) {
+	listCtx, listCancel := context.WithTimeout(context.Background(), r.rpcTimeout)
+	defer listCancel()
+	list, err := r.cli.ContainerList(listCtx, types.ContainerListOptions{})
+	if err != nil {
+		return 0, err
+	}
+	toRestart := make([]string, 0, len(list))
+	for _, c := range list {
+		for _, name := range c.Names {
+			if pattern.MatchString(name) {
+				toRestart = append(toRestart, name)
+			}
+		}
+	}
+	sort.Strings(toRestart)
+	var restarted int
+	for _, name := range toRestart {
+		restartCtx, restartCancel := context.WithTimeout(context.Background(), r.rpcTimeout)
+		defer restartCancel()
+		if err := r.cli.ContainerRestart(restartCtx, name, &dur); err != nil {
+			log.Printf("failed to restart %s, error: %v", name, err)
+			continue
+		}
+		restarted++
+	}
+	return restarted, nil
+}
+
+type restarter struct {
+	cli        *client.Client
+	rpcTimeout time.Duration
 }
