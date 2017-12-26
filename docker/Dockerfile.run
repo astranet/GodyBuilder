@@ -1,0 +1,7 @@
+FROM gliderlabs/alpine
+
+RUN apk add --no-cache ca-certificates wget unzip
+
+VOLUME /apps/bin
+VOLUME /apps/data
+WORKDIR /apps/data

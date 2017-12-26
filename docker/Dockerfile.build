@@ -1,0 +1,5 @@
+FROM golang:alpine
+
+RUN apk add --no-cache ca-certificates git wget unzip
+
+ENTRYPOINT ["tail", "-f", "/dev/null"]
