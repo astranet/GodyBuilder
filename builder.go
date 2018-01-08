@@ -165,6 +165,9 @@ func wrapDedup(pkgC <-chan string) <-chan string {
 			select {
 			case next, ok := <-pkgC:
 				if !ok {
+					for k := range set {
+						limitedOut <- k
+					}
 					close(limitedOut)
 					return
 				}
