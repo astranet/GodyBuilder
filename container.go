@@ -200,7 +200,6 @@ func (d *dockerContainer) Exec(ctx context.Context, cmd string, args ...string) 
 	exe, err := d.cli.ContainerExecCreate(ctx, d.name, types.ExecConfig{
 		AttachStdout: true,
 		AttachStderr: true,
-		WorkingDir:   "/apps/src",
 
 		Cmd: append([]string{cmd}, args...),
 	})

@@ -18,7 +18,7 @@ import (
 	"github.com/xlab/pace"
 )
 
-var app = cli.App("GodyBuilder", "")
+var app = cli.App("GodyBuilder", "Auto-compile daemon and parallel builder for Go executables targeting Docker environments.")
 var goPaths []string
 
 func init() {
@@ -31,8 +31,8 @@ func init() {
 }
 
 func main() {
-	app.Command("build", "Builds all provided packages using a single Docker container.", buildCmd)
-	app.Command("watch", "Starts watching for changes in source code of packages and their deps, restarts related Docker containers after build.", watchCmd)
+	app.Command("build", "Build all listed Go packages using shared state in a Docker container.", buildCmd)
+	app.Command("watch", "Start watching for changes in source code of packages and their deps.", watchCmd)
 	app.Command("cleanup", "Removes the builder container completely.", cleanupCmd)
 	if err := app.Run(os.Args); err != nil {
 		log.Fatalln(err)
