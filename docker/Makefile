@@ -1,4 +1,4 @@
-all: build-image run-image run-image-push run-image-push
+all: build-image run-image build-image-push run-image-push
 
 build-image:
 	docker build --force-rm -t bringhub/gody_build -f Dockerfile.build .
