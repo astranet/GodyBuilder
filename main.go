@@ -42,7 +42,7 @@ func main() {
 func buildCmd(c *cli.Cmd) {
 	debug := c.BoolOpt("v verbose", false, "Verbosive logging.")
 	packages := c.StringsOpt("p pkg", nil, "Adds packages into list to build.")
-	godyImage := c.StringOpt("i image", "bringhub/gody_build", "The builder container image to use.")
+	godyImage := c.StringOpt("i image", "astranet/gody_build_alpine", "The builder container image to use (gody_build_alpine or gody_build_ubuntu).")
 	godyName := c.StringOpt("n name", "gody_builder_1", "Override the builder container name.")
 	outDir := c.StringOpt("o out", "bin/", "Output directory for executable artifacts.")
 	workers := c.IntOpt("j jobs", 2, "Number of parallel build jobs.")
@@ -171,7 +171,7 @@ func buildCmd(c *cli.Cmd) {
 func watchCmd(c *cli.Cmd) {
 	debug := c.BoolOpt("v verbose", false, "Verbosive logging.")
 	packages := c.StringsOpt("p pkg", nil, "Adds packages into list to build.")
-	godyImage := c.StringOpt("i image", "bringhub/gody_build", "The builder container image to use.")
+	godyImage := c.StringOpt("i image", "astranet/gody_build_alpine", "The builder container image to use.")
 	godyName := c.StringOpt("n name", "gody_builder_1", "Override the builder container name.")
 	outDir := c.StringOpt("o out", "bin/", "Output directory for executable artifacts.")
 	workers := c.IntOpt("j jobs", 2, "Number of parallel build jobs.")

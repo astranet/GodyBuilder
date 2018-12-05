@@ -1,0 +1,5 @@
+FROM golang
+
+RUN apt-get update && apt-get install -y git wget unzip gcc g++ pkg-config
+
+ENTRYPOINT ["tail", "-f", "/dev/null"]

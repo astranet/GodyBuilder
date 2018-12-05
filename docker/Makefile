@@ -1,13 +1,15 @@
-all: build-image run-image build-image-push run-image-push
+all: build-images run-image build-images-push run-image-push
 
-build-image:
-	docker build --force-rm -t bringhub/gody_build -f Dockerfile.build .
+build-images:
+	docker build --force-rm -t astranet/gody_build_alpine -f Dockerfile.build_alpine .
+	docker build --force-rm -t astranet/gody_build_ubuntu -f Dockerfile.build_ubuntu .
 
 run-image:
-	docker build --force-rm -t bringhub/gody_run -f Dockerfile.run .
+	docker build --force-rm -t astranet/gody_run -f Dockerfile.run .
 
-build-image-push:
-	docker push bringhub/gody_build
+build-images-push:
+	docker push astranet/gody_build_alpine
+	docker push astranet/gody_build_ubuntu
 
 run-image-push:
-	docker push bringhub/gody_run
+	docker push astranet/gody_run
