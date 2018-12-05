@@ -57,6 +57,18 @@ $ GodyBuilder -i gody_build_ubuntu -p github.com/astranet/galaxy/cmd/galaxy
 $ GodyBuilder cleanup # wipe caches and docker images
 ```
 
+### Troubleshooting
+
+```
+Error response from daemon: client version 1.40 is too new. Maximum supported API version is 1.39
+```
+
+To fix the error use the following:
+
+```
+export DOCKER_API_VERSION=1.39
+```
+
 ### License
 
 [MIT](/LICENSE)
