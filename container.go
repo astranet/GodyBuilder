@@ -52,7 +52,8 @@ const (
 
 func NewContainer(name, image string,
 	hostMounts, env map[string]string) (Container, error) {
-	cli, err := client.NewEnvClient()
+
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithVersion("1.39"))
 	if err != nil {
 		return nil, err
 	}
@@ -390,7 +391,7 @@ type Restarter interface {
 }
 
 func NewRestarter() (Restarter, error) {
-	cli, err := client.NewEnvClient()
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithVersion("1.39"))
 	if err != nil {
 		return nil, err
 	}
