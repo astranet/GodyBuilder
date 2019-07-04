@@ -23,11 +23,6 @@ var goPaths []string
 
 func init() {
 	log.SetFlags(0)
-	if paths := os.Getenv("GOPATH"); len(paths) == 0 {
-		log.Fatalln("GOPATH env variable is not set")
-	} else {
-		goPaths = strings.Split(paths, ":")
-	}
 }
 
 func main() {
@@ -40,8 +35,11 @@ func main() {
 }
 
 func buildCmd(c *cli.Cmd) {
+	currentWorkDir, _ := os.Getwd()
 	debug := c.BoolOpt("v verbose", false, "Verbosive logging.")
 	packages := c.StringsOpt("p pkg", nil, "Adds packages into list to build.")
+	useGomod := c.BoolOpt("m gomod", false, "Enable use of go mod (disables GOPATH).")
+	projectDir := c.StringOpt("P project-dir", currentWorkDir, "When using go mod, specify project directory (that contains go.mod)")
 	godyImage := c.StringOpt("i image", "astranet/gody_build_alpine", "The builder container image to use (gody_build_alpine or gody_build_ubuntu).")
 	godyName := c.StringOpt("n name", "gody_builder_1", "Override the builder container name.")
 	outDir := c.StringOpt("o out", "bin/", "Output directory for executable artifacts.")
@@ -51,6 +49,15 @@ func buildCmd(c *cli.Cmd) {
 
 	c.Action = func() {
 		defer closer.Close()
+
+		if !*useGomod {
+			paths := os.Getenv("GOPATH")
+			if len(paths) == 0 {
+				log.Fatalln("GOPATH env variable is not set")
+			} else {
+				goPaths = strings.Split(paths, string(os.PathListSeparator))
+			}
+		}
 
 		if *debug {
 			if len(*packages) == 0 {
@@ -81,17 +88,25 @@ func buildCmd(c *cli.Cmd) {
 		}
 
 		outAbs, _ := filepath.Abs(*outDir)
-		mounts := make(map[string]string)
-		gopathsEnv := make([]string, 0, 1)
-		for i, p := range goPaths {
-			abs, _ := filepath.Abs(p)
-			mounts[filepath.Join(abs, "src")] = fmt.Sprintf("/gopath_%d/src", i+1)
-			mounts[outAbs] = fmt.Sprintf("/gopath_%d/bin", i+1)
-			gopathsEnv = append(gopathsEnv, fmt.Sprintf("/gopath_%d", i+1))
+		mounts := map[string]string{
+			outAbs: "/go/bin",
 		}
-		env := map[string]string{
-			"GOPATH": strings.Join(gopathsEnv, ":"),
+		env := make(map[string]string)
+		if *useGomod {
+			env["GO111MODULE"] = "on"
+			if len(*projectDir) > 0 {
+				mounts[*projectDir] = "/go/src"
+			}
+		} else {
+			gopathsEnv := make([]string, 0, 1)
+			for i, p := range goPaths {
+				abs, _ := filepath.Abs(p)
+				mounts[filepath.Join(abs, "src")] = fmt.Sprintf("/gopath_%d/src", i+1)
+				gopathsEnv = append(gopathsEnv, fmt.Sprintf("/gopath_%d", i+1))
+			}
+			env["GOPATH"] = strings.Join(gopathsEnv, ":")
 		}
+
 		if *debug {
 			log.Println("gody: mounts", mounts)
 			log.Println("gody: env", env)
@@ -169,8 +184,11 @@ func buildCmd(c *cli.Cmd) {
 }
 
 func watchCmd(c *cli.Cmd) {
+	currentWorkDir, _ := os.Getwd()
 	debug := c.BoolOpt("v verbose", false, "Verbosive logging.")
 	packages := c.StringsOpt("p pkg", nil, "Adds packages into list to build.")
+	useGomod := c.BoolOpt("m gomod", false, "Enable use of go mod (disables GOPATH).")
+	projectDir := c.StringOpt("P project-dir", currentWorkDir, "When using go mod, specify project directory (that contains go.mod)")
 	godyImage := c.StringOpt("i image", "astranet/gody_build_alpine", "The builder container image to use.")
 	godyName := c.StringOpt("n name", "gody_builder_1", "Override the builder container name.")
 	outDir := c.StringOpt("o out", "bin/", "Output directory for executable artifacts.")
@@ -240,16 +258,24 @@ func watchCmd(c *cli.Cmd) {
 		}
 
 		outAbs, _ := filepath.Abs(*outDir)
-		mounts := make(map[string]string)
-		gopathsEnv := make([]string, 0, 1)
-		for i, p := range goPaths {
-			abs, _ := filepath.Abs(p)
-			mounts[filepath.Join(abs, "src")] = fmt.Sprintf("/gopath_%d/src", i+1)
-			mounts[outAbs] = fmt.Sprintf("/gopath_%d/bin", i+1)
-			gopathsEnv = append(gopathsEnv, fmt.Sprintf("/gopath_%d", i+1))
+		mounts := map[string]string{
+			outAbs: "/out/bin",
 		}
-		env := map[string]string{
-			"GOPATH": strings.Join(gopathsEnv, ":"),
+		env := make(map[string]string)
+		if *useGomod {
+			env["GO111MODULE"] = "on"
+			if len(*projectDir) > 0 {
+				mounts[*projectDir] = "/go/src"
+			}
+		} else {
+			gopathsEnv := make([]string, 0, 1)
+			for i, p := range goPaths {
+				abs, _ := filepath.Abs(p)
+				mounts[filepath.Join(abs, "src")] = fmt.Sprintf("/gopath_%d/src", i+1)
+				mounts[outAbs] = fmt.Sprintf("/gopath_%d/bin", i+1)
+				gopathsEnv = append(gopathsEnv, fmt.Sprintf("/gopath_%d", i+1))
+			}
+			env["GOPATH"] = strings.Join(gopathsEnv, ":")
 		}
 		if *debug {
 			log.Println("gody: mounts", mounts)

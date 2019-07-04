@@ -30,7 +30,7 @@ type Container interface {
 	Stop(dur time.Duration) error
 	Remove() error
 
-	Exec(ctx context.Context, cmd string, args ...string) (string, error)
+	Exec(ctx context.Context, wd, cmd string, args ...string) (string, error)
 	State() (ContainerState, error)
 }
 
@@ -197,10 +197,11 @@ func (d *dockerContainer) Stop(dur time.Duration) error {
 	return nil
 }
 
-func (d *dockerContainer) Exec(ctx context.Context, cmd string, args ...string) (string, error) {
+func (d *dockerContainer) Exec(ctx context.Context, wd, cmd string, args ...string) (string, error) {
 	exe, err := d.cli.ContainerExecCreate(ctx, d.name, types.ExecConfig{
 		AttachStdout: true,
 		AttachStderr: true,
+		WorkingDir:   "/go/src",
 
 		Cmd: append([]string{cmd}, args...),
 	})

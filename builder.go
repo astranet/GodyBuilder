@@ -14,7 +14,7 @@ type Builder interface {
 }
 
 type Runner interface {
-	Exec(ctx context.Context, cmd string, args ...string) (string, error)
+	Exec(ctx context.Context, wd, cmd string, args ...string) (string, error)
 }
 
 type builder struct {
@@ -148,7 +148,7 @@ func (b *builder) BuildOnRequest(ctx context.Context, workers int, onBuilt func(
 }
 
 func (b *builder) buildPkg(ctx context.Context, pkg string) error {
-	_, err := b.r.Exec(ctx, "go", "install", pkg)
+	_, err := b.r.Exec(ctx, "/go/src", "go", "install", pkg)
 	return err
 }
 
